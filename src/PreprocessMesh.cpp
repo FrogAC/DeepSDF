@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include <experimental/filesystem>
+
 #include <pangolin/geometry/geometry.h>
 #include <pangolin/geometry/glgeometry.h>
 #include <pangolin/gl/gl.h>
@@ -323,7 +325,7 @@ int main(int argc, char** argv) {
   std::string npyFileName;
   std::string plyFileNameOut;
   std::string spatial_samples_npz;
-  std::string unitFileName = nullptr;
+  std::string unitFileName;
 
   bool save_ply = true;
   bool test_flag = false;
@@ -350,7 +352,7 @@ int main(int argc, char** argv) {
   app.add_flag("--keeppos", use_original_pos, "Use model world position");
   app.add_flag("--keepscale", use_original_scale, "Use model scale instead of normalized unit circle");
   app.add_option("--random", random_model_count, "randomize multiple objects");
-  app.add_option("--saveunit", unitFileName, "append unit size to this file");
+  app.add_option("--unitonly", unitFileName, "append unit size to this file");
 
   CLI11_PARSE(app, argc, argv);
 
@@ -431,6 +433,15 @@ int main(int argc, char** argv) {
   BoundingParam bcube;
 
   float max_dist = BoundingCubeNormalization(geom, true, &bcube);
+
+  if (!unitFileName.empty()) {
+    std::experimental::filesystem::path p(meshFileName);
+    std::ofstream f;
+    f.open(unitFileName, std::ios::app);
+    f << std::experimental::filesystem::absolute(p).string() << ":" << std::to_string(bcube.maxDistance) << std::endl;
+    f.close();
+    return 0;
+  }
 
   if (vis)
     pangolin::CreateWindowAndBind("Main", 640, 480);

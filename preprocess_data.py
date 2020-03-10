@@ -52,6 +52,13 @@ def process_mesh(mesh_filepath, target_filepath, executable, additional_args):
     subproc = subprocess.Popen(command, stdout=subprocess.DEVNULL)
     subproc.wait()
 
+def process_mesh_unit(mesh_filepath, target_filepath, executable):
+    logging.info(mesh_filepath + " --> " + target_filepath)
+    command = [executable, "-m", mesh_filepath, "--unitonly", target_filepath]
+
+    subproc = subprocess.Popen(command, stdout=subprocess.DEVNULL)
+    subproc.wait()
+
 
 def append_data_source_map(data_dir, name, source):
 
@@ -142,6 +149,14 @@ if __name__ == "__main__":
         help="If set, the script will produce mesh surface samples for evaluation. "
         + "Otherwise, the script will produce SDF samples for training.",
     )
+    arg_parser.add_argument(
+        "--unitonly",
+        dest="unitdata_file",
+        required=False,
+        default='',
+        help="The file contains all units of processed data. Will only processing units",
+    )
+    
 
     deep_sdf.add_common_args(arg_parser)
 
@@ -257,12 +272,21 @@ if __name__ == "__main__":
             target_filepath,
             specific_args,
         ) in meshes_targets_and_specific_args:
-            executor.submit(
-                process_mesh,
-                mesh_filepath,
-                target_filepath,
-                executable,
-                specific_args + additional_general_args,
-            )
+            if args.unitdata_file == '':
+                executor.submit(
+                    process_mesh,
+                    mesh_filepath,
+                    target_filepath,
+                    executable,
+                    specific_args + additional_general_args,
+                )
+            else :
+                target_filepath = args.unitdata_file
+                executor.submit(
+                    process_mesh_unit,
+                    mesh_filepath,
+                    target_filepath,
+                    executable
+                )
 
         executor.shutdown()
