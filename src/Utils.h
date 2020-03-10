@@ -7,7 +7,7 @@
 #include <nanoflann/nanoflann.hpp>
 #include <pangolin/geometry/geometry.h>
 #include <pangolin/pangolin.h>
-#include <Eigen/Core>
+#include <eigen3/Eigen/Core>
 
 struct KdVertexList {
  public:
@@ -62,7 +62,13 @@ std::pair<Eigen::Vector3f, float> ComputeNormalizationParameters(
     pangolin::Geometry& geom,
     const float buffer = 1.03);
 
+struct BoundingParam{
+  float xCenter, yCenter, zCenter;
+  float maxDistance;  // unit cicle
+};
+
 float BoundingCubeNormalization(
     pangolin::Geometry& geom,
     const bool fitToUnitSphere,
+    BoundingParam *bcube,
     const float buffer = 1.03);

@@ -170,6 +170,7 @@ std::pair<Eigen::Vector3f, float> ComputeNormalizationParameters(
 float BoundingCubeNormalization(
     pangolin::Geometry& geom,
     bool fitToUnitSphere,
+    BoundingParam *bcube,
     const float buffer) {
   float xMin = 1000000, xMax = -1000000, yMin = 1000000, yMax = -1000000, zMin = 1000000,
         zMax = -1000000;
@@ -230,6 +231,13 @@ float BoundingCubeNormalization(
 
   // add some buffer
   maxDistance *= buffer;
+
+
+  bcube->xCenter = xCenter;
+  bcube->yCenter = yCenter;
+  bcube->zCenter = zCenter;
+
+  bcube->maxDistance = fitToUnitSphere ? maxDistance : 1;
 
   if (fitToUnitSphere) {
     for (size_t i = 0; i < numVertices; i++) {

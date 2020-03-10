@@ -84,6 +84,39 @@ void SampleFromSurface(
   }
 }
 
+void ProcessingSdf(
+    std::vector<Eigen::Vector3f> &xyz,
+    std::vector<float> &sdfs,
+    bool keeppos,
+    bool keepscale,
+    int randSize,
+    BoundingParam *bcube = nullptr) {
+  // scale before pos
+  if (keepscale) {
+    for (auto v = xyz.begin(); v < xyz.end(); v++) {
+      (*v)[0]*=bcube->maxDistance;
+      (*v)[1]*=bcube->maxDistance;
+      (*v)[2]*=bcube->maxDistance;
+    }
+  }
+  if (keeppos) {
+    for (auto v = xyz.begin(); v < xyz.end(); v++) {
+      (*v)[0]+=bcube->xCenter;
+      (*v)[1]+=bcube->yCenter;
+      (*v)[2]+=bcube->zCenter;
+    }
+  }
+
+  // randomize on xy plane, z axis
+  std::vector<float> xCenters{(bcube && keeppos) ? bcube->xCenter : 0};
+  std::vector<float> yCenters{(bcube && keeppos) ? bcube->yCenter : 0};
+  std::vector<float> zCenters{(bcube && keeppos) ? bcube->zCenter : 0};
+  float minDist = (bcube && keepscale) ? bcube->maxDistance : 1;
+  for (int i = 0; i < randSize; i++) {
+
+  }
+}
+
 void SampleSDFNearSurface(
     KdVertexListTree& kdTree,
     std::vector<Eigen::Vector3f>& vertices,
@@ -258,6 +291,9 @@ void writeSDFToPLY(
   plyFile << "property float x\n";
   plyFile << "property float y\n";
   plyFile << "property float z\n";
+  plyFile << "property float nx\n";
+  plyFile << "property float ny\n";
+  plyFile << "property float nz\n";
   plyFile << "property uchar red\n";
   plyFile << "property uchar green\n";
   plyFile << "property uchar blue\n";
@@ -270,14 +306,15 @@ void writeSDFToPLY(
     bool pos = (sdf >= 0);
     if (neg)
       sdf = -sdf;
-    int sdf_i = std::min((int)(sdf * 255), 255);
+    int sdf_i = 255 - std::min((int)(sdf * 255), 255);
     if (!neg_only && pos)
-      plyFile << v[0] << " " << v[1] << " " << v[2] << " " << 0 << " " << 0 << " " << sdf_i << "\n";
+      plyFile << v[0] << " " << v[1] << " " << v[2] << " " << 0 << " " << 0 << " " << 0 << " " << sdf_i << " " << 0 << " " << 0 << "\n";
     if (!pos_only && neg)
-      plyFile << v[0] << " " << v[1] << " " << v[2] << " " << sdf_i << " " << 0 << " " << 0 << "\n";
+      plyFile << v[0] << " " << v[1] << " " << v[2] << " " << 0 << " " << 0 << " " << 0 << " " << 0 << " " << sdf_i << " " << 0 << "\n";
   }
   plyFile.close();
 }
+
 
 int main(int argc, char** argv) {
   std::string meshFileName;
@@ -286,8 +323,14 @@ int main(int argc, char** argv) {
   std::string npyFileName;
   std::string plyFileNameOut;
   std::string spatial_samples_npz;
+  std::string unitFileName;
+
   bool save_ply = true;
   bool test_flag = false;
+  bool use_original_pos = false;
+  bool use_original_scale = false;
+
+  int random_model_count = 0;
   float variance = 0.005;
   int num_sample = 500000;
   float rejection_criteria_obs = 0.02f;
@@ -297,13 +340,17 @@ int main(int argc, char** argv) {
   CLI::App app{"PreprocessMesh"};
   app.add_option("-m", meshFileName, "Mesh File Name for Reading")->required();
   app.add_flag("-v", vis, "enable visualization");
-  app.add_option("-o", npyFileName, "Save npy pc to here")->required();
+  app.add_option("-o", npyFileName, "Save npy pc to here");
   app.add_option("--ply", plyFileNameOut, "Save ply pc to here");
   app.add_option("-s", num_sample, "Save ply pc to here");
   app.add_option("--var", variance, "Set Variance");
   app.add_flag("--sply", save_ply, "save ply point cloud for visualization");
   app.add_flag("-t", test_flag, "test_flag");
   app.add_option("-n", spatial_samples_npz, "spatial samples from file");
+  app.add_flag("--keeppos", use_original_pos, "Use model world position");
+  app.add_flag("--keepscale", use_original_scale, "Use model scale instead of normalized unit circle");
+  app.add_option("--random", random_model_count, "randomize multiple objects");
+  app.add_option("--saveunit", unitFileName, "append unit size to this file");
 
   CLI11_PARSE(app, argc, argv);
 
@@ -381,7 +428,9 @@ int main(int argc, char** argv) {
   pangolin::Image<uint32_t> modelFaces = pangolin::get<pangolin::Image<uint32_t>>(
       geom.objects.begin()->second.attributes["vertex_indices"]);
 
-  float max_dist = BoundingCubeNormalization(geom, true);
+  BoundingParam bcube;
+
+  float max_dist = BoundingCubeNormalization(geom, true, &bcube);
 
   if (vis)
     pangolin::CreateWindowAndBind("Main", 640, 480);
@@ -480,6 +529,8 @@ int main(int argc, char** argv) {
 
     framebuffer.Unbind();
 
+    // n and v in World Space?
+
     pangolin::TypedImage img_normals;
     normals.Download(img_normals);
     std::vector<Eigen::Vector4f> im_norms = ValidPointsAndTrisFromIm(
@@ -487,7 +538,7 @@ int main(int argc, char** argv) {
     point_normals.insert(point_normals.end(), im_norms.begin(), im_norms.end());
 
     pangolin::TypedImage img_verts;
-    vertices.Download(img_verts);
+    vertices.Download(img_verts); 
     std::vector<Eigen::Vector4f> im_verts =
         ValidPointsFromIm(img_verts.UnsafeReinterpret<Eigen::Vector4f>());
     point_verts.insert(point_verts.end(), im_verts.begin(), im_verts.end());
@@ -507,7 +558,7 @@ int main(int argc, char** argv) {
   float bad_tri_ratio = (float)(bad_tri) / float(num_tri);
 
   if (wrong_ratio > rejection_criteria_obs || bad_tri_ratio > rejection_criteria_tri) {
-    std::cout << "mesh rejected" << std::endl;
+    std::cout << "Warn: wrong obs / bad tri" << std::endl;
     //    return 0;
   }
 
@@ -549,17 +600,21 @@ int main(int argc, char** argv) {
   auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(finish - start).count();
   std::cout << elapsed << std::endl;
 
+  // additional modifications
+  ProcessingSdf(xyz, sdf, use_original_pos, use_original_scale, random_model_count, &bcube);
+
   if (save_ply) {
-    writeSDFToPLY(xyz, sdf, plyFileNameOut, false, true);
+    writeSDFToPLY(xyz, sdf, plyFileNameOut, false, false);
   }
 
   std::cout << "num points sampled: " << xyz.size() << std::endl;
-  std::size_t save_npz = npyFileName.find("npz");
-  if (save_npz == std::string::npos)
-    writeSDFToNPY(xyz, sdf, npyFileName);
-  else {
-    writeSDFToNPZ(xyz, sdf, npyFileName, true);
+  if (!npyFileName.empty()) {
+    std::size_t save_npz = npyFileName.find("npz");
+    if (save_npz == std::string::npos)
+      writeSDFToNPY(xyz, sdf, npyFileName);
+    else {
+      writeSDFToNPZ(xyz, sdf, npyFileName, true);
+    }
   }
-
   return 0;
 }
