@@ -91,8 +91,9 @@ void ProcessingSdf(
     std::vector<float> &sdfs,
     bool keeppos,
     bool keepscale,
-    int randSize,
+    int rand_size,
     BoundingParam *bcube = nullptr) {
+  
   // scale before pos
   if (keepscale) {
     for (auto v = xyz.begin(); v < xyz.end(); v++) {
@@ -110,12 +111,61 @@ void ProcessingSdf(
   }
 
   // randomize on xy plane, z axis
-  std::vector<float> xCenters{(bcube && keeppos) ? bcube->xCenter : 0};
-  std::vector<float> yCenters{(bcube && keeppos) ? bcube->yCenter : 0};
-  std::vector<float> zCenters{(bcube && keeppos) ? bcube->zCenter : 0};
-  float minDist = (bcube && keepscale) ? bcube->maxDistance : 1;
-  for (int i = 0; i < randSize; i++) {
-
+  if (!keeppos && !keepscale) {
+    int sdfsize = (int)xyz.size();
+    // std::vector<Eigen::Vector3f> centers {
+    //   Eigen::Vector3f(
+    //     (bcube && keeppos) ? bcube->xCenter : 0,
+    //     (bcube && keeppos) ? bcube->yCenter : 0,
+    //     (bcube && keeppos) ? bcube->zCenter : 0
+    //   )};
+    // float minDist = (bcube && keepscale) ? bcube->maxDistance : 1;
+    std::vector<Eigen::Vector3f> centers { Eigen::Vector3f(0,0,0) };
+    float min_sqdist = 2.4;
+    int iter_max = 1000;
+    bool valid_sdf;
+    int iter_left, valid_count=0;
+    Eigen::Vector3f dist, new_center;
+    for (int i = 0; i < rand_size; i++) {
+      valid_sdf = false;
+      iter_left = iter_max;
+      while(!valid_sdf && iter_left--) {
+        // -10 to 10
+        new_center = Eigen::Vector3f(
+          (float)(rand() % 2000) / 100.0 - 10,
+          0,
+          (float)(rand() % 2000) / 100.0 - 10
+        );
+        valid_sdf = true;
+        for (auto it = centers.begin(); valid_sdf && it != centers.end(); it++) {
+          dist = (*it) - new_center;
+          valid_sdf &= dist.squaredNorm() > min_sqdist;
+        }
+      }
+      if (valid_sdf) { 
+        centers.push_back(new_center);
+        valid_count++;
+      }
+      // std::cout << rot << " " << new_center.x << " " << new_center.y << std::endl; 
+    }
+    sdfs.resize((valid_count+1) * sdfsize);
+    xyz.resize((valid_count+1) * sdfsize);
+    Eigen::Matrix3f m_rot;
+    Eigen::Vector3f center;
+    for (int i = 0; i < valid_count; i++) {
+      // copy, rot, move
+      std::copy(sdfs.begin(), sdfs.begin()+sdfsize, sdfs.begin() + sdfsize*(i+1));
+      std::copy(xyz.begin(), xyz.begin()+sdfsize, xyz.begin() + sdfsize*(i+1));
+      m_rot = Eigen::AngleAxisf(
+        ((float)(rand() % 36000) / 100.0)*M_PI/180.0,
+        Eigen::Vector3f::UnitY()
+      );
+      center = centers[i];
+      for (auto p = xyz.begin() + sdfsize*(i+1); p < xyz.begin() + sdfsize*(i+2); p++) {
+        *p = m_rot * (*p) + center;
+      }
+    }
+    std::cout << "Add " << valid_count << "random sdf copys" << std::endl;
   }
 }
 
@@ -351,10 +401,15 @@ int main(int argc, char** argv) {
   app.add_option("-n", spatial_samples_npz, "spatial samples from file");
   app.add_flag("--keeppos", use_original_pos, "Use model world position");
   app.add_flag("--keepscale", use_original_scale, "Use model scale instead of normalized unit circle");
-  app.add_option("--random", random_model_count, "randomize multiple objects");
+  app.add_option("--random", random_model_count, "randomize multiple objects. Works only on normalized");
   app.add_option("--unitonly", unitFileName, "append unit size to this file");
 
   CLI11_PARSE(app, argc, argv);
+
+  if (random_model_count > 0 && (use_original_pos || use_original_scale)) {
+    std::cerr << "Random objects must be normlized" << std::endl;
+    return 0;
+  }
 
   if (test_flag)
     variance = 0.05;
