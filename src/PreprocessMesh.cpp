@@ -323,7 +323,7 @@ int main(int argc, char** argv) {
   std::string npyFileName;
   std::string plyFileNameOut;
   std::string spatial_samples_npz;
-  std::string unitFileName;
+  std::string unitFileName = nullptr;
 
   bool save_ply = true;
   bool test_flag = false;
