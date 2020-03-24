@@ -121,10 +121,10 @@ void ProcessingSdf(
     //   )};
     // float minDist = (bcube && keepscale) ? bcube->maxDistance : 1;
     std::vector<Eigen::Vector3f> centers { Eigen::Vector3f(0,0,0) };
-    float min_sqdist = 2.4;
+    float min_sqdist = 2.0*2.0+0.3;
     int iter_max = 1000;
     bool valid_sdf;
-    int iter_left, valid_count=0;
+    int iter_left, valid_count=1;
     Eigen::Vector3f dist, new_center;
     for (int i = 0; i < rand_size; i++) {
       valid_sdf = false;
@@ -148,24 +148,24 @@ void ProcessingSdf(
       }
       // std::cout << rot << " " << new_center.x << " " << new_center.y << std::endl; 
     }
-    sdfs.resize((valid_count+1) * sdfsize);
-    xyz.resize((valid_count+1) * sdfsize);
+    sdfs.resize(valid_count * sdfsize);
+    xyz.resize(valid_count * sdfsize);
     Eigen::Matrix3f m_rot;
     Eigen::Vector3f center;
-    for (int i = 0; i < valid_count; i++) {
+    for (int i = 1; i < valid_count; i++) {
       // copy, rot, move
-      std::copy(sdfs.begin(), sdfs.begin()+sdfsize, sdfs.begin() + sdfsize*(i+1));
-      std::copy(xyz.begin(), xyz.begin()+sdfsize, xyz.begin() + sdfsize*(i+1));
+      std::copy(sdfs.begin(), sdfs.begin()+sdfsize, sdfs.begin() + sdfsize*i);
+      std::copy(xyz.begin(), xyz.begin()+sdfsize, xyz.begin() + sdfsize*i);
       m_rot = Eigen::AngleAxisf(
         ((float)(rand() % 36000) / 100.0)*M_PI/180.0,
         Eigen::Vector3f::UnitY()
       );
       center = centers[i];
-      for (auto p = xyz.begin() + sdfsize*(i+1); p < xyz.begin() + sdfsize*(i+2); p++) {
+      for (auto p = xyz.begin() + sdfsize*i; p < xyz.begin() + sdfsize*(i+1); p++) {
         *p = m_rot * (*p) + center;
       }
     }
-    std::cout << "Add " << valid_count << "random sdf copys" << std::endl;
+    std::cout << valid_count << " valid random copys" << std::endl;
   }
 }
 
@@ -381,6 +381,7 @@ int main(int argc, char** argv) {
   bool test_flag = false;
   bool use_original_pos = false;
   bool use_original_scale = false;
+  bool use_surf_only = false;
 
   int random_model_count = 0;
   float variance = 0.005;
@@ -403,6 +404,7 @@ int main(int argc, char** argv) {
   app.add_flag("--keepscale", use_original_scale, "Use model scale instead of normalized unit circle");
   app.add_option("--random", random_model_count, "randomize multiple objects. Works only on normalized");
   app.add_option("--unitonly", unitFileName, "append unit size to this file");
+  app.add_flag("--surf", use_surf_only, "Use only surface points for sampling");
 
   CLI11_PARSE(app, argc, argv);
 
@@ -649,7 +651,8 @@ int main(int argc, char** argv) {
   SampleFromSurface(geom, xyz_surf, num_samp_near_surf / 2);
 
   auto start = std::chrono::high_resolution_clock::now();
-  SampleSDFNearSurface(
+  if (!use_surf_only) {
+    SampleSDFNearSurface(
       kdTree_surf,
       vertices2,
       xyz_surf,
@@ -661,7 +664,11 @@ int main(int argc, char** argv) {
       second_variance,
       2,
       11);
-
+  } else {
+    xyz = std::vector<Eigen::Vector3f>(xyz_surf);
+    sdf = std::vector<float>(xyz.size());
+  }
+    
   auto finish = std::chrono::high_resolution_clock::now();
   auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(finish - start).count();
   std::cout << elapsed << std::endl;

@@ -48,7 +48,7 @@ def filter_classes(patterns, classes):
 def process_mesh(mesh_filepath, target_filepath, executable, additional_args):
     logging.info(mesh_filepath + " --> " + target_filepath)
     command = [executable, "-m", mesh_filepath, "-o", target_filepath] + additional_args
-
+    logging.info(command)
     subproc = subprocess.Popen(command, stdout=subprocess.DEVNULL)
     subproc.wait()
 
@@ -156,6 +156,19 @@ if __name__ == "__main__":
         default='',
         help="The file contains all units of processed data. Will only processing units",
     )
+    arg_parser.add_argument(
+        "--random",
+        dest="use_random",
+        default=False,
+        action="store_true",
+        help="If set, will use randomized data"
+    )
+    arg_parser.add_argument(
+        "--ply",
+        dest="plyfile",
+        default='',
+        help="Testing: If set, will gen ply for the first data."
+    )
     
 
     deep_sdf.add_common_args(arg_parser)
@@ -178,6 +191,8 @@ if __name__ == "__main__":
 
         if args.test_sampling:
             additional_general_args += ["-t"]
+        
+        
 
     with open(args.split_filename, "r") as f:
         split = json.load(f)
@@ -249,6 +264,13 @@ if __name__ == "__main__":
                         normalization_param_target_dir, instance_dir + ".npz"
                     )
                     specific_args = ["-n", normalization_param_filename]
+
+                if args.use_random:
+                    specific_args += ['--random', '10']
+
+                if args.plyfile != '':
+                    specific_args += ['--ply', args.plyfile]
+                    args.plyfile = ''
 
                 meshes_targets_and_specific_args.append(
                     (
