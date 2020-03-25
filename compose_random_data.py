@@ -65,7 +65,7 @@ def generateData(dstDir, id:int , srcFiles:list, n:int, sample:int):
                 centers.append(newCenter)
                 
     # gen sdf
-    print(len(centers))
+    print('#{} : {}/{} objs'.format(id, len(centers),n))
     combinedXyz = []
     meshes = np.random.choice(srcFiles, len(centers))
     for center, mesh in zip(centers, meshes):
@@ -86,7 +86,6 @@ def generateData(dstDir, id:int , srcFiles:list, n:int, sample:int):
     writePly(combinedXyz, plyFile)
     writeNpz(combinedXyz, npzFile)
     infoData = [{'mesh': mesh, 'center': center.tolist()} for center, mesh in zip(centers, meshes)]
-    print(json.dumps(infoData, indent=4))
     with open(infoFile,'w') as f:
         f.write(json.dumps(infoData))
 
