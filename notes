@@ -1,0 +1,9 @@
+voxlization
+bounding circle -> bbox
+
+
+// preprocess_data
+python preprocess_data.py --data_dir /media/daoyi/easystore/ShapeNet/DeepSDF/data/ --source /media/daoyi/easystore/ShapeNet/ShapeNetCore.v2 --name ShapeNetV2 --split examples/splits/sv2_chairs_train.json --surface --skip
+
+// random_scenes
+python compose_random_data.py -d data/RandomComposed/chairs_train -s [...]data/SurfaceSamples/ShapeNetV2/03001627 --nobj 3 --nscene [num of experiments] --sample 4000 --bbox 4.5
