@@ -217,8 +217,8 @@ int main(int argc, char** argv) {
       geom.objects.begin()->second.attributes["vertex_indices"]);
 
 
-  BoundingParam bcube;
-  float max_dist = BoundingCubeNormalization(geom, true, &bcube);
+  // BoundingParam bcube;
+  // float max_dist = BoundingCubeNormalization(geom, true, &bcube);
 
   pangolin::CreateWindowAndBind("Main", 1, 1);
   glEnable(GL_DEPTH_TEST);

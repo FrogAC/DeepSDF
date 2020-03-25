@@ -5,6 +5,8 @@ import numpy as np
 import json
 from scipy.spatial.transform import Rotation as scRot
 
+
+
 def writePly(xyz:list, name:str):
     with open(name, 'w') as f:
         f.write("ply\n")
@@ -43,11 +45,15 @@ def readPly(name:str, sample:int) -> list:
         xyz = [np.array([float(x) for x in line.strip().split(' ')[0:3]]) for line in xyz]
     return xyz
 
-def generateData(dstDir, id:int , srcFiles:list, n:int, sample:int, boxSize:float):
+def readScale(name):
+    with open(name, 'rb') as f:
+        return np.load(f)['scale']
+
+
+def generateData(outputDir:str , id:int , surfaceNormFiles:list,  n:int, numSample:int, boxSize:float):
     ITER_MAX = 1000
 
     centers = []
-
     for _ in range(n):
         validSdf = False
         iterLeft = ITER_MAX
@@ -68,27 +74,28 @@ def generateData(dstDir, id:int , srcFiles:list, n:int, sample:int, boxSize:floa
     # gen sdf
     print('#{} : {}/{} objs'.format(id, len(centers),n))
     combinedXyz = []
-    meshes = np.random.choice(srcFiles, len(centers))
-    for center, mesh in zip(centers, meshes):
-        xyz = readPly(mesh, sample)
+    selectedSurfNorms = random.sample(surfaceNormFiles, len(centers))
+    for center, (surfF, normF) in zip(centers, selectedSurfNorms):
+        xyz = readPly(surfF, numSample)
+        scale = readScale(normF)
         # rot = scRot.from_euler(
         #     'y',
         #     random.uniform(0.0,360.0),
         #     True
         # )
         # sdf = [x for x in rot.apply(sdf)]
-        xyz = [x +center for x in xyz]
+        xyz = [x * scale + center for x in xyz]
         # sdf = rot.apply(sdf)
         combinedXyz += xyz
 
-    plyFile = os.path.join(dstDir, '{}_sdf.ply'.format(i))
-    npzFile = os.path.join(dstDir, '{}_sdf.npz'.format(i))
-    infoFile = os.path.join(dstDir, '{}_info.json'.format(i))
+    plyFile = os.path.join(outputDir, 'scene_{}.ply'.format(id))
+    npzFile = os.path.join(outputDir, 'scene_{}.npz'.format(id))
+    infoFile = os.path.join(outputDir, 'scene_{}_info.json'.format(id))
     writePly(combinedXyz, plyFile)
     writeNpz(combinedXyz, npzFile)
-    infoData = [{'mesh': mesh, 'center': center.tolist()} for center, mesh in zip(centers, meshes)]
+    infoData = [{'mesh': os.path.basename(surf)[:-4], 'center': center.tolist()} for center, (surf,_) in zip(centers, selectedSurfNorms)]
     with open(infoFile,'w') as f:
-        f.write(json.dumps(infoData))
+        f.write(json.dumps(infoData, indent=4))
 
 if __name__ == "__main__":
     arg_parser = argparse.ArgumentParser(
@@ -100,14 +107,20 @@ if __name__ == "__main__":
         "-d",
         dest="data_dir",
         required=True,
-        help="The directory which will hold generated data.",
+        help="The experiment data directory",
     )
     arg_parser.add_argument(
-        "--source",
-        "-s",
-        dest="source_dir",
+        "--name",
+        "-n",
+        dest="source_name",
+        default=None,
+        help="The name to use for the data source",
+    )
+    arg_parser.add_argument(
+        "--split",
+        dest="split_filename",
         required=True,
-        help="The directory which holds preprocessed data and append.",
+        help="A split filename defining the shapes to be processed.",
     )
     arg_parser.add_argument(
         "--nobj",
@@ -135,16 +148,28 @@ if __name__ == "__main__":
         help = 'size of the bounding box'
     )
     args =  arg_parser.parse_args()
+    normParamBase = os.path.join(args.data_dir, 'NormalizationParameters', args.source_name)
+    surfaceBase = os.path.join(args.data_dir, 'SurfaceSamples', args.source_name)
+    outputBase = os.path.join(args.data_dir, 'ComposedScene', args.source_name)
 
-    sdfFiles = [os.path.join(args.source_dir,f) for f in os.listdir(args.source_dir)]
+    surfaceFiles = []
+    normParamFiles = []
+    with open(args.split_filename, "r") as f:
+        split = json.load(f)
+    for folder in split[args.source_name]:
+        outputP = os.path.join(outputBase, folder)
+        os.makedirs(outputP, exist_ok=True)
 
-    os.makedirs(args.data_dir, exist_ok=True)
-
-    for i in range(int(args.s)):
-        generateData(
-            args.data_dir,
-            i,
-            sdfFiles,
-            int(args.n),
-            int(args.sample),
-            float(args.boxSize))
+        surfP = os.path.join(surfaceBase, folder)
+        normP = os.path.join(normParamBase, folder)
+        surfF = os.listdir(surfP)
+        surfaceFiles += [os.path.join(surfP,f) for f in surfF]
+        normParamFiles += [os.path.join(normP,f[:-4]+'.npz') for f in surfF]  # assume surf files < norm files
+        for i in range(int(args.s)):
+            generateData(
+                outputP,
+                i,
+                list(zip(surfaceFiles, normParamFiles)),
+                int(args.n),
+                int(args.sample),
+                float(args.boxSize))
