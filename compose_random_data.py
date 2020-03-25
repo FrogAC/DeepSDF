@@ -26,7 +26,7 @@ def writePly(xyz:list, name:str):
 def writeNpz(xyz:list, name:str):
     sdf = np.zeros((len(xyz),1))
     xyz = np.append(np.array(xyz),sdf, axis=1)
-    np.savez(name, xyz)
+    np.savez(name, neg = xyz)
 
 def readPly(name:str, sample:int) -> list:
     xyz = []
