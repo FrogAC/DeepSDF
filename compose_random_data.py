@@ -43,7 +43,7 @@ def readPly(name:str, sample:int) -> list:
         xyz = [np.array([float(x) for x in line.strip().split(' ')[0:3]]) for line in xyz]
     return xyz
 
-def generateData(dstDir, id:int , srcFiles:list, n:int, sample:int):
+def generateData(dstDir, id:int , srcFiles:list, n:int, sample:int, boxSize:float):
     ITER_MAX = 1000
 
     centers = []
@@ -53,14 +53,15 @@ def generateData(dstDir, id:int , srcFiles:list, n:int, sample:int):
         iterLeft = ITER_MAX
         while not validSdf and iterLeft > 0 :
             iterLeft -= 1
+            boxLen = (boxSize-2)/2
             newCenter = np.array([
-                random.uniform(-0.75,0.75),
+                random.uniform(-boxLen,boxLen),
                 0,
-                random.uniform(-0.75,0.75)
+                random.uniform(-boxLen,boxLen)
             ])
             validSdf = True
             for center in centers:
-                validSdf &= np.linalg.norm(center - newCenter) > 1.0
+                validSdf &= np.linalg.norm(center - newCenter) > 2
             if validSdf: 
                 centers.append(newCenter)
                 
@@ -126,6 +127,13 @@ if __name__ == "__main__":
         required = True,
         help = 'number of sample surf points per object'
     )
+    arg_parser.add_argument(
+        "--bbox",
+        dest='boxSize',
+        required = False,
+        default= 4.0,
+        help = 'size of the bounding box'
+    )
     args =  arg_parser.parse_args()
 
     sdfFiles = [os.path.join(args.source_dir,f) for f in os.listdir(args.source_dir)]
@@ -138,4 +146,5 @@ if __name__ == "__main__":
             i,
             sdfFiles,
             int(args.n),
-            int(args.sample))
+            int(args.sample),
+            float(args.boxSize))

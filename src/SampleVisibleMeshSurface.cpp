@@ -216,7 +216,9 @@ int main(int argc, char** argv) {
   pangolin::Image<uint32_t> modelFaces = pangolin::get<pangolin::Image<uint32_t>>(
       geom.objects.begin()->second.attributes["vertex_indices"]);
 
-  // float max_dist = BoundingCubeNormalization(geom, true);
+
+  BoundingParam bcube;
+  float max_dist = BoundingCubeNormalization(geom, true, &bcube);
 
   pangolin::CreateWindowAndBind("Main", 1, 1);
   glEnable(GL_DEPTH_TEST);
