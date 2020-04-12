@@ -1,7 +1,6 @@
 voxlization
 bounding circle -> bbox
 
-
 // preprocess_data
 python preprocess_data.py --data_dir /media/daoyi/easystore/ShapeNet/DeepSDF/data/ --source /media/daoyi/easystore/ShapeNet/ShapeNetCore.v2 --name ShapeNetV2 --split examples/splits/sv2_chairs_train.json --surface --skip
 

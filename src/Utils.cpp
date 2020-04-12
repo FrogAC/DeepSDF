@@ -90,6 +90,31 @@ float TriangleArea(const Eigen::Vector3f& a, const Eigen::Vector3f& b, const Eig
   return 0.5f * ab.norm() * ac.norm() * sinTheta;
 }
 
+
+void SamplePointAndNormalFromTriangle(
+    const Eigen::Vector3f& a,
+    const Eigen::Vector3f& b,
+    const Eigen::Vector3f& c,
+    const Eigen::Vector3f& na,
+    const Eigen::Vector3f& nb,
+    const Eigen::Vector3f& nc,
+    Eigen::Vector3f &point,
+    Eigen::Vector3f &norm) {
+  std::random_device seeder;
+  std::mt19937 generator(seeder());
+  std::uniform_real_distribution<float> rand_dist(0.0, 1.0);
+
+  const float r1 = rand_dist(generator);
+  const float r2 = rand_dist(generator);
+
+  // https://www.cs.princeton.edu/~funk/tog02.pdf
+  norm = Eigen::Vector3f(
+    (1 - std::sqrt(r1)) * na + std::sqrt(r1) * (1 - r2) * nb + r2 * std::sqrt(r1) * nc);
+
+  point = Eigen::Vector3f(
+      (1 - std::sqrt(r1)) * a + std::sqrt(r1) * (1 - r2) * b + r2 * std::sqrt(r1) * c);
+}
+
 Eigen::Vector3f SamplePointFromTriangle(
     const Eigen::Vector3f& a,
     const Eigen::Vector3f& b,

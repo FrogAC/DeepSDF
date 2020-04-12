@@ -20,9 +20,13 @@
 
 extern pangolin::GlSlProgram GetShaderProgram();
 
-void SavePointsToPLY(const std::vector<Eigen::Vector3f>& verts, const std::string outputfile) {
+void SavePointsToPLY(const std::vector<Eigen::Vector3f>& verts,
+const std::vector<Eigen::Vector3f>& norms,
+ const std::string outputfile) {
   const std::size_t num_verts = verts.size();
+  assert(num_verts == norms.size());
   Eigen::Vector3f v;
+  Eigen::Vector3f n;
 
   std::ofstream plyFile;
   plyFile.open(outputfile);
@@ -32,18 +36,26 @@ void SavePointsToPLY(const std::vector<Eigen::Vector3f>& verts, const std::strin
   plyFile << "property float x\n";
   plyFile << "property float y\n";
   plyFile << "property float z\n";
-  plyFile << "element face " << (num_verts / 3) << "\n";
-  plyFile << "property list uchar int vertex_index\n";
+  plyFile << "property float nx\n";
+  plyFile << "property float ny\n";
+  plyFile << "property float nz\n";
+  plyFile << "property uchar red\n";
+  plyFile << "property uchar green\n";
+  plyFile << "property uchar blue\n";
   plyFile << "end_header\n";
 
   for (uint i = 0; i < num_verts; i++) {
     v = verts[i];
-    plyFile << v[0] << " " << v[1] << " " << v[2] << "\n";
+    n = norms[i];
+
+    plyFile << v[0] << " " << v[1] << " " << v[2] 
+      <<  " " << n[0] <<  " " << n[1] <<  " " << n[2]
+      << " 122" << " 122" << " 122" << "\n";
   }
 
-  for (uint i = 0; i < num_verts; i += 3) {
-    plyFile << "3 " << i << " " << (i + 1) << " " << (i + 2) << "\n";
-  }
+  // for (uint i = 0; i < num_verts; i += 3) {
+  //   plyFile << "3 " << i << " " << (i + 1) << " " << (i + 2) << "\n";
+  // }
 
   plyFile.close();
 }
@@ -59,6 +71,7 @@ void SaveNormalizationParamsToNPZ(
 void SampleFromSurfaceInside(
     pangolin::Geometry& geom,
     std::vector<Eigen::Vector3f>& surfpts,
+    std::vector<Eigen::Vector3f>& surfnorms,
     int num_sample,
     KdVertexListTree& kdTree,
     std::vector<Eigen::Vector3f>& surface_vertices,
@@ -84,6 +97,8 @@ void SampleFromSurfaceInside(
 
   pangolin::Image<float> vertices =
       pangolin::get<pangolin::Image<float>>(geom.buffers["geometry"].attributes["vertex"]);
+  pangolin::Image<float> normals =
+      pangolin::get<pangolin::Image<float>>(geom.buffers["geometry"].attributes["normal"]);
 
   for (const Eigen::Vector3i& face : linearized_faces) {
     float area = TriangleArea(
@@ -117,10 +132,26 @@ void SampleFromSurfaceInside(
 
     const Eigen::Vector3i& face = linearized_faces[tri_index];
 
+    // Eigen::Vector3f norm;
+    // Eigen::Vector3f point;
+    // SamplePointAndNormalFromTriangle(
+    //     Eigen::Map<Eigen::Vector3f>(vertices.RowPtr(face(0))),
+    //     Eigen::Map<Eigen::Vector3f>(vertices.RowPtr(face(1))),
+    //     Eigen::Map<Eigen::Vector3f>(vertices.RowPtr(face(2))),
+    //     Eigen::Map<Eigen::Vector3f>(normals.RowPtr(face(0))),
+    //     Eigen::Map<Eigen::Vector3f>(normals.RowPtr(face(1))),
+    //     Eigen::Map<Eigen::Vector3f>(normals.RowPtr(face(2))),
+    //     point,
+    //     norm);
+
+    
     Eigen::Vector3f point = SamplePointFromTriangle(
         Eigen::Map<Eigen::Vector3f>(vertices.RowPtr(face(0))),
         Eigen::Map<Eigen::Vector3f>(vertices.RowPtr(face(1))),
-        Eigen::Map<Eigen::Vector3f>(vertices.RowPtr(face(2))));
+        Eigen::Map<Eigen::Vector3f>(vertices.RowPtr(face(2)))
+     );
+    // weighted normal from triangle
+    
 
     // Now test if this point is on the shell
     int cl_index;
@@ -138,6 +169,8 @@ void SampleFromSurfaceInside(
       continue;
 
     surfpts.push_back(point);
+    surfnorms.push_back(cl_normal);
+    // surfnorms.push_back(norm);
   }
 }
 
@@ -310,8 +343,9 @@ int main(int argc, char** argv) {
   kdTree_surf.buildIndex();
 
   std::vector<Eigen::Vector3f> surf_pts;
-  SampleFromSurfaceInside(geom, surf_pts, num_sample, kdTree_surf, vertices2, normals2, 0.00001);
-  SavePointsToPLY(surf_pts, plyOutFile);
+  std::vector<Eigen::Vector3f> surf_norms;
+  SampleFromSurfaceInside(geom, surf_pts, surf_norms, num_sample, kdTree_surf, vertices2, normals2, 0.00001);
+  SavePointsToPLY(surf_pts, surf_norms, plyOutFile);
 
   if (!normalizationOutputFile.empty()) {
     const std::pair<Eigen::Vector3f, float> normalizationParams =

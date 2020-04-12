@@ -7,11 +7,11 @@ from scipy.spatial.transform import Rotation as scRot
 
 
 
-def writePly(xyz:list, name:str):
+def writePly(xyzn:list, name:str):
     with open(name, 'w') as f:
         f.write("ply\n")
         f.write("format ascii 1.0\n")
-        f.write("element vertex {}\n".format(len(xyz)))
+        f.write("element vertex {}\n".format(len(xyzn)))
         f.write("property float x\n")
         f.write("property float y\n")
         f.write("property float z\n")
@@ -22,18 +22,24 @@ def writePly(xyz:list, name:str):
         f.write("property uchar green\n")
         f.write("property uchar blue\n")
         f.write("end_header\n")
-        for p in xyz:
-            f.write('{} {} {} 0 0 0 122 122 122\n'.format(p[0], p[1], p[2]))
+        for p in xyzn:
+            f.write('{} {} {} {} {} {} 122 122 122\n'.format(p[0], p[1], p[2], p[3], p[4], p[5]))
 
 def writeNpz(xyz:list, name:str):
     sdf = np.zeros((len(xyz),1))
     xyz = np.append(np.array(xyz),sdf, axis=1)
     np.savez(name, neg = xyz)
 
+# standard format:
+# ...
+# element vertex {}
+# ...
+# end_header
+# x y z nx ny nz r g b
+# ...
 def readPly(name:str, sample:int) -> list:
-    xyz = []
+    xyzn = []
     num_sample = 0
-
     with open(name) as f:
         for _, line in enumerate(f) :
             if line.startswith('end_header'):
@@ -41,9 +47,9 @@ def readPly(name:str, sample:int) -> list:
             if line.startswith('element vertex'):
                 num_sample = int(line.strip().split(' ')[2])
         
-        xyz = np.random.choice(f.readlines()[0:num_sample], min(sample, num_sample))
-        xyz = [np.array([float(x) for x in line.strip().split(' ')[0:3]]) for line in xyz]
-    return xyz
+        xyzn = np.random.choice(f.readlines()[0:num_sample], min(sample, num_sample))
+        xyzn = [np.array([float(x) for x in line.strip().split(' ')[0:6]]) for line in xyzn]
+    return xyzn
 
 def readScale(name):
     with open(name, 'rb') as f:
@@ -73,10 +79,10 @@ def generateData(outputDir:str , id:int , surfaceNormFiles:list,  n:int, numSamp
                 
     # gen sdf
     print('#{} : {}/{} objs'.format(id, len(centers),n))
-    combinedXyz = []
+    combinedXyzn = []
     selectedSurfNorms = random.sample(surfaceNormFiles, len(centers))
     for center, (surfF, normF) in zip(centers, selectedSurfNorms):
-        xyz = readPly(surfF, numSample)
+        xyzn = readPly(surfF, numSample)
         scale = readScale(normF)
         # rot = scRot.from_euler(
         #     'y',
@@ -84,15 +90,15 @@ def generateData(outputDir:str , id:int , surfaceNormFiles:list,  n:int, numSamp
         #     True
         # )
         # sdf = [x for x in rot.apply(sdf)]
-        xyz = [x * scale + center for x in xyz]
+        xyzn = [np.append(x[0:3] * scale + center,x[3:6]) for x in xyzn]
         # sdf = rot.apply(sdf)
-        combinedXyz += xyz
+        combinedXyzn += xyzn
 
     plyFile = os.path.join(outputDir, 'scene_{}.ply'.format(id))
     npzFile = os.path.join(outputDir, 'scene_{}.npz'.format(id))
     infoFile = os.path.join(outputDir, 'scene_{}_info.json'.format(id))
-    writePly(combinedXyz, plyFile)
-    writeNpz(combinedXyz, npzFile)
+    writePly(combinedXyzn, plyFile)
+    writeNpz(combinedXyzn, npzFile)
     infoData = [{'mesh': os.path.basename(surf)[:-4], 'center': center.tolist()} for center, (surf,_) in zip(centers, selectedSurfNorms)]
     with open(infoFile,'w') as f:
         f.write(json.dumps(infoData, indent=4))

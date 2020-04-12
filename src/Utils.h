@@ -58,6 +58,17 @@ Eigen::Vector3f SamplePointFromTriangle(
     const Eigen::Vector3f& b,
     const Eigen::Vector3f& c);
 
+
+void SamplePointAndNormalFromTriangle(
+    const Eigen::Vector3f& a,
+    const Eigen::Vector3f& b,
+    const Eigen::Vector3f& c,
+    const Eigen::Vector3f& na,
+    const Eigen::Vector3f& nb,
+    const Eigen::Vector3f& nc,
+    Eigen::Vector3f &point,
+    Eigen::Vector3f &norm);
+
 std::pair<Eigen::Vector3f, float> ComputeNormalizationParameters(
     pangolin::Geometry& geom,
     const float buffer = 1.03);
