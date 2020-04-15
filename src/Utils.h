@@ -71,6 +71,8 @@ void SamplePointAndNormalFromTriangle(
 
 std::pair<Eigen::Vector3f, float> ComputeNormalizationParameters(
     pangolin::Geometry& geom,
+    Eigen::Vector3f &bboxMin,
+    Eigen::Vector3f &bboxMax,
     const float buffer = 1.03);
 
 struct BoundingParam{

@@ -63,8 +63,12 @@ const std::vector<Eigen::Vector3f>& norms,
 void SaveNormalizationParamsToNPZ(
     const Eigen::Vector3f offset,
     const float scale,
-    const std::string filename) {
+    const std::string filename,
+    const Eigen::Vector3f bboxMin,
+    const Eigen::Vector3f bboxMax) {
   cnpy::npz_save(filename, "offset", offset.data(), {3ul}, "w");
+  cnpy::npz_save(filename, "bboxmin", bboxMin.data(), {3ul}, "a");
+  cnpy::npz_save(filename, "bboxmax", bboxMax.data(), {3ul}, "a");
   cnpy::npz_save(filename, "scale", &scale, {1ul}, "a");
 }
 
@@ -345,14 +349,25 @@ int main(int argc, char** argv) {
   std::vector<Eigen::Vector3f> surf_pts;
   std::vector<Eigen::Vector3f> surf_norms;
   SampleFromSurfaceInside(geom, surf_pts, surf_norms, num_sample, kdTree_surf, vertices2, normals2, 0.00001);
+
+  // normalization and fit to unit sphere
+  Eigen::Vector3f bboxMin, bboxMax;  // centered bbox
+  const std::pair<Eigen::Vector3f, float> normalizationParams =
+      ComputeNormalizationParameters(geom, bboxMin, bboxMax);
+  bboxMin *= normalizationParams.second;
+  bboxMax *= normalizationParams.second;
+  for (auto &p : surf_pts) {
+    p += normalizationParams.first;
+    p *= normalizationParams.second;
+  }
+
+
+
   SavePointsToPLY(surf_pts, surf_norms, plyOutFile);
 
   if (!normalizationOutputFile.empty()) {
-    const std::pair<Eigen::Vector3f, float> normalizationParams =
-        ComputeNormalizationParameters(geom);
-
-    SaveNormalizationParamsToNPZ(
-        normalizationParams.first, normalizationParams.second, normalizationOutputFile);
+    SaveNormalizationParamsToNPZ(normalizationParams.first, normalizationParams.second, normalizationOutputFile,
+    bboxMin, bboxMax);
   }
 
   std::cout << "ended correctly" << std::endl;

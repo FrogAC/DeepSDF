@@ -133,6 +133,8 @@ Eigen::Vector3f SamplePointFromTriangle(
 // TODO: duplicated w/ below
 std::pair<Eigen::Vector3f, float> ComputeNormalizationParameters(
     pangolin::Geometry& geom,
+    Eigen::Vector3f &bboxMin,
+    Eigen::Vector3f &bboxMax,
     const float buffer) {
   float xMin = 1000000, xMax = -1000000, yMin = 1000000, yMax = -1000000, zMin = 1000000,
         zMax = -1000000;
@@ -173,7 +175,12 @@ std::pair<Eigen::Vector3f, float> ComputeNormalizationParameters(
     zMax = fmax(zMax, vertices(2, i));
   }
 
+
   const Eigen::Vector3f center((xMax + xMin) / 2.0f, (yMax + yMin) / 2.0f, (zMax + zMin) / 2.0f);
+
+  // define bounding box
+  bboxMin = (Eigen::Vector3f(xMin, yMin, zMin) - center) * buffer;
+  bboxMax = (Eigen::Vector3f(xMax, yMax, zMax) - center) * buffer;
 
   // make the mean zero
   float maxDistance = -1.0f;
