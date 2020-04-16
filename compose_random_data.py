@@ -25,10 +25,8 @@ def writePly(xyzn:list, name:str):
         for p in xyzn:
             f.write('{} {} {} {} {} {} 122 122 122\n'.format(p[0], p[1], p[2], p[3], p[4], p[5]))
 
-def writeNpz(xyz:list, name:str):
-    sdf = np.zeros((len(xyz),1))
-    xyz = np.append(np.array(xyz),sdf, axis=1)
-    np.savez(name, neg = xyz)
+def writeNpz(xyzn:list, center: list, bbox:list, name:str):
+    np.savez(name, xyzn = np.array(xyzn), center = np.array(center), bbox = np.array(bbox))
 
 # standard format:
 # ...
@@ -51,9 +49,14 @@ def readPly(name:str, sample:int) -> list:
         xyzn = [np.array([float(x) for x in line.strip().split(' ')[0:6]]) for line in xyzn]
     return xyzn
 
-def readScale(name):
+def readScaleAndBbox(name):
     with open(name, 'rb') as f:
-        return np.load(f)['scale']
+        data = np.load(f)
+        scale = data['scale']
+        bboxmax = data['bboxmax']
+        # assert the bbox is centered
+        # assert((bboxmax == -bboxmin).all())
+        return  (scale, bboxmax)
 
 
 def generateData(outputDir:str , id:int , surfaceNormFiles:list,  n:int, numSample:int, boxSize:float):
@@ -73,33 +76,35 @@ def generateData(outputDir:str , id:int , surfaceNormFiles:list,  n:int, numSamp
             ])
             validSdf = True
             for center in centers:
-                validSdf &= np.linalg.norm(center - newCenter) > 2
+                validSdf &= np.linalg.norm(center - newCenter) > 2.01
             if validSdf: 
                 centers.append(newCenter)
                 
     # gen sdf
     print('#{} : {}/{} objs'.format(id, len(centers),n))
     combinedXyzn = []
+    bboxs = []
     selectedSurfNorms = random.sample(surfaceNormFiles, len(centers))
     for center, (surfF, normF) in zip(centers, selectedSurfNorms):
         xyzn = readPly(surfF, numSample)
-        scale = readScale(normF)
+        (_,bbox) = readScaleAndBbox(normF)
         # rot = scRot.from_euler(
         #     'y',
         #     random.uniform(0.0,360.0),
         #     True
         # )
         # sdf = [x for x in rot.apply(sdf)]
-        xyzn = [np.append(x[0:3] * scale + center,x[3:6]) for x in xyzn]
+        xyzn = [np.append(x[0:3] + center,x[3:6]) for x in xyzn]
         # sdf = rot.apply(sdf)
         combinedXyzn += xyzn
+        bboxs.append(bbox)
 
     plyFile = os.path.join(outputDir, 'scene_{}.ply'.format(id))
     npzFile = os.path.join(outputDir, 'scene_{}.npz'.format(id))
     infoFile = os.path.join(outputDir, 'scene_{}_info.json'.format(id))
     writePly(combinedXyzn, plyFile)
-    writeNpz(combinedXyzn, npzFile)
-    infoData = [{'mesh': os.path.basename(surf)[:-4], 'center': center.tolist()} for center, (surf,_) in zip(centers, selectedSurfNorms)]
+    writeNpz(combinedXyzn, centers, bboxs , npzFile)
+    infoData = [{'mesh': os.path.basename(surf)[:-4]} for (surf,_) in selectedSurfNorms]
     with open(infoFile,'w') as f:
         f.write(json.dumps(infoData, indent=4))
 
