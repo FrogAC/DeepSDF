@@ -100,10 +100,7 @@ if __name__ == "__main__":
     composer = compose_scene_util(
         '/media/daoyee/easystore/ShapeNet/DeepSDF/examples/splits',
         '/media/daoyee/easystore/ShapeNet/DeepSDF/data/')
-
-    pc,label = composer.get_scene( 5,5, 5, 4)
-    writePly('tmp_compose_scene.ply',pc, label)
-
-    
-
+    for i in range(5):
+        pc,label = composer.get_scene( 6,6, 8, 4000)
+        writePly('tmp_compose_scene{}.ply'.format(i),pc, label)W
     print('Time', time.perf_counter() - start_timer)

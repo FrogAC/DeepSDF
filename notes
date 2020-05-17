@@ -2,7 +2,7 @@ voxlization
 bounding circle -> bbox
 
 // preprocess_data
-python preprocess_data.py --data_dir /media/daoyi/easystore/ShapeNet/DeepSDF/data/ --source /media/daoyi/easystore/ShapeNet/ShapeNetCore.v2 --name ShapeNetV2 --split examples/splits/sv2_chairs_train.json --surface --skip
+python preprocess_data.py --data_dir /media/daoyee/easystore/ShapeNet/DeepSDF/data/ --source /media/daoyi/easystore/ShapeNet/ShapeNetCore.v2 --name ShapeNetV2 --split examples/splits/sv2_chairs_train.json --surface --skip
 
 // random_scenes
-python compose_random_data.py -d /media/daoyi/easystore/ShapeNet/DeepSDF/data/ --name ShapeNetV2 --split examples/splits/sv2_chairs_train.json --nobj 3 --nscene 5 --sample 4000 --bbox 4.5
+python compose_random_data.py -d /media/daoyee/easystore/ShapeNet/DeepSDF/data/ --name ShapeNetV2 --split examples/splits/sv2_chairs_train.json --nobj 3 --nscene 5 --sample 4000 --bbox 4.5
