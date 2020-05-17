@@ -5,7 +5,7 @@ import numpy as np
 import json
 from scipy.spatial.transform import Rotation as scRot
 
-
+SPLIT
 
 def writePly(xyzn:list, name:str):
     with open(name, 'w') as f:
