@@ -5,8 +5,6 @@ import numpy as np
 import json
 from scipy.spatial.transform import Rotation as scRot
 
-SPLIT
-
 def writePly(xyzn:list, name:str):
     with open(name, 'w') as f:
         f.write("ply\n")
@@ -98,7 +96,7 @@ def generateData(outputDir:str , id:int , surfaceNormFiles:list,  n:int, numSamp
         # sdf = [x for x in rot.apply(sdf)]
 
         # Rotate to Z-UP
-        xyzn = [np.append(rot_x90.apply(x[0:3]) + center,rot_x90.apply(x[3:6])) for x in xyzn]
+        xyzn = [np.append(rot_x90.apply(x[0:3]) + center , rot_x90.apply(x[3:6])) for x in xyzn]
         # sdf = rot_x90.apply(sdf)
         combinedXyzn += xyzn
         bboxs.append(rot_x90.apply(bbox))
