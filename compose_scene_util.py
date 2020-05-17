@@ -67,6 +67,28 @@ class compose_scene_util:
         return np.array(ret_pc),np.array(ret_label)
 
 
+def writePly(f_out:str, vertex: list, label: list):
+    with open(f_out, 'w') as f:
+        f.write("ply\n")
+        f.write("format ascii 1.0\n")
+        f.write("element vertex {}\n".format(len(label)))
+        f.write("property float x\n")
+        f.write("property float y\n")
+        f.write("property float z\n")
+        f.write("property float nx\n")
+        f.write("property float ny\n")
+        f.write("property float nz\n")
+        f.write("property uchar red\n")
+        f.write("property uchar green\n")
+        f.write("property uchar blue\n")
+        f.write("end_header\n")
+        for i in range(len(label)):
+            v = vertex[i]
+            col =[50 * (x + 1) for x in [ label[i] % 3, label[i] % 4, label[i] % 5 ]]
+            f.write('{} {} {} {} {} {} {} {} {}\n'
+                .format(v[0], v[1], v[2],
+                    v[3], v[4], v[5],
+                    col[0], col[1], col[2]))
 
 
 
@@ -80,6 +102,8 @@ if __name__ == "__main__":
         '/media/daoyee/easystore/ShapeNet/DeepSDF/data/')
 
     pc,label = composer.get_scene( 5,5, 5, 4)
-    print(pc.shape,label.shape)
+    writePly('tmp_compose_scene.ply',pc, label)
+
+    
 
     print('Time', time.perf_counter() - start_timer)
