@@ -85,6 +85,8 @@ def generateData(outputDir:str , id:int , surfaceNormFiles:list,  n:int, numSamp
     combinedXyzn = []
     bboxs = []
     selectedSurfNorms = random.sample(surfaceNormFiles, len(centers))
+    rot_x90 = scRot.from_euler('x', 90, True)
+    centers = rot_x90.apply(centers)
     for center, (surfF, normF) in zip(centers, selectedSurfNorms):
         xyzn = readPly(surfF, numSample)
         (_,bbox) = readScaleAndBbox(normF)
@@ -94,10 +96,12 @@ def generateData(outputDir:str , id:int , surfaceNormFiles:list,  n:int, numSamp
         #     True
         # )
         # sdf = [x for x in rot.apply(sdf)]
-        xyzn = [np.append(x[0:3] + center,x[3:6]) for x in xyzn]
-        # sdf = rot.apply(sdf)
+
+        # Rotate to Z-UP
+        xyzn = [np.append(rot_x90.apply(x[0:3]) + center,rot_x90.apply(x[3:6])) for x in xyzn]
+        # sdf = rot_x90.apply(sdf)
         combinedXyzn += xyzn
-        bboxs.append(bbox)
+        bboxs.append(rot_x90.apply(bbox))
 
     plyFile = os.path.join(outputDir, 'scene_{}.ply'.format(id))
     npzFile = os.path.join(outputDir, 'scene_{}.npz'.format(id))
