@@ -9,7 +9,7 @@ ITER_MAX = 1000
 
 LABEL_LIST = ['chair','lamp', 'plane', 'sofa', 'table']
 SPLIT_FILE = ['sv2_chairs_train.json',
-              'sv2_lamps_train.json',
+            #   'sv2_lamps_train.json',
               'sv2_planes_train.json',
               'sv2_sofas_train.json',
               'sv2_tables_train.json']
@@ -60,22 +60,23 @@ class compose_scene_util:
                 try:
                     objply, label = random.choice(self.file_label_pairs)
                     vertex = np.array(np.random.choice(PlyData.read(objply)['vertex'].data,num_points).tolist())[:,0:6]
+                    # normparams = np.load(objply.replace('SurfaceSamples', 'NormalizationParameters').replace('.ply','.npz'))
                     has_found_model = True
                 except:
                     has_found_model = False
                     
-            # pc = [np.append(rot_x90.apply(x[0:3]) + center , rot_x90.apply(x[3:6])) for x in pc]
             # pos
-            vertex[:,0:3] = np.apply_along_axis(rot_x90.apply, 1, vertex[:,0:3]) + center
-            floor_height = min(0,np.min(vertex[:,2]))
-            vertex[:,0:3] = vertex[:,0:3] - floor_height
+            # floor_offset = abs(normparams['bboxmin'][1])
+            # center[2] += floor_offset
+            floor_offset = np.max(vertex[:,1])
+            vertex[:,0:3] = np.apply_along_axis(rot_x90.apply, 1, vertex[:,0:3]) + center + floor_offset
             # normal
             vertex[:,3:6] = np.apply_along_axis(rot_x90.apply, 1, vertex[:,3:6])
             label = np.full((vertex.shape[0],),label)
             ret_pc = np.append(ret_pc, vertex, axis = 0) 
             ret_label =  np.append(ret_label, label)
         
-        return np.array(ret_pc),np.array(ret_label)
+        return np.array(ret_pc), np.array(ret_label)
 
 
 def writePly(f_out:str, vertex: list, label: list):
@@ -114,5 +115,5 @@ if __name__ == "__main__":
     test_size = 5
     for i in range(test_size):
         pc,label = composer.get_scene( 6,6, 8, 4000)
-        writePly('tmp_compose_scene{}.ply'.format(i),pc, label)
+        # writePly('tmp_compose_scene{}.ply'.format(i),pc, label)
     print('Time Per Test', (time.perf_counter() - start_timer)/test_size)
