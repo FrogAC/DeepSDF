@@ -7,10 +7,14 @@ from scipy.spatial.transform import Rotation as scRot
 
 ITER_MAX = 1000
 
-LABEL_LIST = ['chair','lamp', 'plane', 'sofa', 'table']
-SPLIT_FILE = ['sv2_chairs_train.json',
-            #   'sv2_lamps_train.json',
-              'sv2_planes_train.json',
+LABEL_LIST = [#'chair',
+               'lamp',
+              #'plane',
+               'sofa',
+               'table']
+SPLIT_FILE = [#'sv2_chairs_train.json',
+              'sv2_lamps_train.json',
+             #'sv2_planes_train.json',
               'sv2_sofas_train.json',
               'sv2_tables_train.json']
 
@@ -24,7 +28,6 @@ class compose_scene_util:
             for outfolder in split['ShapeNetV2'] \
             for data_id in split['ShapeNetV2'][outfolder] \
             ]
-        print(self.file_label_pairs)
 
     def get_label_map(self):
         return LABEL_LIST
@@ -59,20 +62,14 @@ class compose_scene_util:
                 try:
                     objply, label = random.choice(self.file_label_pairs)
                     vertex = np.array(np.random.choice(PlyData.read(objply)['vertex'].data,num_points).tolist())[:,0:6]
-<<<<<<< HEAD
-                    assert vertex.shape[1] == 6  # dirty fix
+                    
                     has_found_model = True
                 except:
                     has_found_model = False
 
+            assert vertex.shape[1] == 6
+            
             # pc = [np.append(rot_x90.apply(x[0:3]) + center , rot_x90.apply(x[3:6])) for x in pc]
-=======
-                    # normparams = np.load(objply.replace('SurfaceSamples', 'NormalizationParameters').replace('.ply','.npz'))
-                    has_found_model = True
-                except:
-                    has_found_model = False
-                    
->>>>>>> 48fb16170b07d5d0025554509c9189a100017a97
             # pos
             # floor_offset = abs(normparams['bboxmin'][1])
             # center[2] += floor_offset
@@ -102,9 +99,10 @@ def writePly(f_out:str, vertex: list, label: list):
         for i in range(len(label)):
             v = vertex[i]
             col =[50 * (x + 1) for x in [ label[i] % 3, label[i] % 4, label[i] % 5 ]]
-            f.write('{} {} {} {} {} {}\n'
+            f.write('{} {} {} {} {} {} {} {} {}\n'
                 .format(v[0], v[1], v[2],
-                    v[3], v[4], v[5]))
+                    v[3], v[4], v[5],
+                    col[0], col[1], col[2]))
 
 
 if __name__ == "__main__":
@@ -112,12 +110,12 @@ if __name__ == "__main__":
 
     start_timer = time.perf_counter()
     
+    # example / benchmark
     composer = compose_scene_util(
         splits_dir = 'examples/splits',
         data_dir = 'data/')
-
     test_size = 5
     for i in range(test_size):
         pc,label = composer.get_scene(6,6,8,4000)
-        writePly('tmp_compose_scene{}.ply'.format(i),pc, label)
+        writePly('tmp/tmp_compose_scene{}.ply'.format(i),pc, label)
     print('Time Per Scene', (time.perf_counter() - start_timer)/test_size)
