@@ -191,8 +191,6 @@ if __name__ == "__main__":
 
         if args.test_sampling:
             additional_general_args += ["-t"]
-        
-        
 
     with open(args.split_filename, "r") as f:
         split = json.load(f)
