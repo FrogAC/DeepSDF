@@ -7,16 +7,18 @@ from scipy.spatial.transform import Rotation as scRot
 
 ITER_MAX = 1000
 
-LABEL_LIST = [#'chair',
-               'lamp',
+LABEL_LIST = ['chair',
+              #'lamp',
               #'plane',
-               'sofa',
-               'table']
-SPLIT_FILE = [#'sv2_chairs_train.json',
-              'sv2_lamps_train.json',
+              #'sofa',
+              #'table'
+              ]
+SPLIT_FILE = ['sv2_chairs_train.json',
+             #'sv2_lamps_train.json',
              #'sv2_planes_train.json',
-              'sv2_sofas_train.json',
-              'sv2_tables_train.json']
+             #'sv2_sofas_train.json',
+             #'sv2_tables_train.json'
+             ]
 
 class compose_scene_util:
     def __init__(self, splits_dir, data_dir):
@@ -69,14 +71,15 @@ class compose_scene_util:
 
             assert vertex.shape[1] == 6
             
-            # pc = [np.append(rot_x90.apply(x[0:3]) + center , rot_x90.apply(x[3:6])) for x in pc]
+            # set rotation
+            rot_z = scRot.from_euler('z', np.random.random() * 360, degrees = True)
+            rot_vertex = rot_z * rot_x90
             # pos
-            # floor_offset = abs(normparams['bboxmin'][1])
-            # center[2] += floor_offset
             floor_offset = np.max(vertex[:,1])
-            vertex[:,0:3] = np.apply_along_axis(rot_x90.apply, 1, vertex[:,0:3]) + center + floor_offset
+            vertex[:,0:3] = np.apply_along_axis(rot_vertex.apply, 1, vertex[:,0:3]) + center + floor_offset
             # normal
-            vertex[:,3:6] = np.apply_along_axis(rot_x90.apply, 1, vertex[:,3:6])
+            vertex[:,3:6] = np.apply_along_axis(rot_vertex.apply, 1, vertex[:,3:6])
+            
             label = np.full((vertex.shape[0],),label)
             ret_pc = np.append(ret_pc, vertex, axis = 0) 
             ret_label =  np.append(ret_label, label)
@@ -99,10 +102,9 @@ def writePly(f_out:str, vertex: list, label: list):
         for i in range(len(label)):
             v = vertex[i]
             col =[50 * (x + 1) for x in [ label[i] % 3, label[i] % 4, label[i] % 5 ]]
-            f.write('{} {} {} {} {} {} {} {} {}\n'
+            f.write('{} {} {} {} {} {}\n'
                 .format(v[0], v[1], v[2],
-                    v[3], v[4], v[5],
-                    col[0], col[1], col[2]))
+                    v[3], v[4], v[5]))
 
 
 if __name__ == "__main__":
