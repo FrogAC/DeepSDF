@@ -5,6 +5,13 @@ import numpy as np
 import json
 from plyfile import PlyData, PlyListProperty
 from scipy.spatial.transform import Rotation as scRot
+try:
+    from tqdm.auto import tqdm
+except ImportError:
+    def tqdm(*args, **kwargs):
+        if args:
+            return args[0]
+        return kwargs.get('iterable', None)
 
 ITER_MAX = 1000
 
@@ -40,7 +47,6 @@ class compose_scene_util:
         '''
         def rnd_center():
             return random.random() * self.size_center - self.size_center / 2.0
-
         # ------------------------------------------------------------------------
         # pick center
         centers = [np.array([rnd_center(), rnd_center(), 0])]
@@ -53,7 +59,7 @@ class compose_scene_util:
                     centers.append(newCenter)
                     break
 
-        print('#{}/{} objs'.format(len(centers),self.num_objects))
+        # print('#{}/{} objs'.format(len(centers),self.num_objects))
 
         # fill-in objs
         ret_pc = np.empty((0,6))
@@ -77,26 +83,47 @@ class compose_scene_util:
             ret_label =  np.append(ret_label, label)
 
         if self.use_corruption :
-            pc_c, label_c = __corrupt_scene(ret_pc, ret_label, self.corruption_density, 0.3)
+            pc_c, label_c = self.corrupt_scene(ret_pc, ret_label, self.corruption_density, 0.25)
         else:
             pc_c = label_c = None
 
         if self.use_normalize:
-                normalize_offset = np.array([0.5,0.5,0.0])
-                ret_pc[:,0:3] = ret_pc[:,0:3] / self.size_scene + normalize_offset  # inplace
+            normalize_offset = np.array([0.5,0.5,0.0])
+            ret_pc[:,0:3] = ret_pc[:,0:3] / self.size_scene + normalize_offset
+            if pc_c is not None:
+                pc_c[:,0:3] = pc_c[:,0:3] / self.size_scene + normalize_offset
+
 
         return ret_pc, ret_label, pc_c, label_c
-    def __corrupt_scene(pc, label, corruption_density, shape_size):
-        shape_size = 0.1
-        num_to
 
-        # pick random surface points
-        # center a shape on random distance along surface normal
-        # remove all points in current region
-        # continue until
+    @staticmethod
+    def corrupt_scene(pc, label, corruption_density, shape_size):
+        '''
+        shape_size: radius of sphere
+        '''
+        points_to_remove = pc.shape[0] * corruption_density
+
+        while points_to_remove > 0:
+            # pick random surface points
+            surface_point = pc[random.randrange(pc.shape[0])]
+            
+            # center a shape on random distance along surface normal
+            shape_center = surface_point[0:3] + random.uniform(-shape_size * 0.9, shape_size * 0.9) * surface_point[3:6]
+
+            # remove all points in current shape
+            idx_to_remove = []
+            for i in range(pc.shape[0]):
+                if np.linalg.norm(pc[i][0:3] - shape_center, axis=0) < shape_size:
+                    idx_to_remove.append(i)
+
+            idx_to_remove = np.array(idx_to_remove)
+            pc = np.delete(pc, idx_to_remove, axis = 0)
+            label = np.delete(label, idx_to_remove, axis = 0)
+
+            # continue until points meet density requirement
+            points_to_remove -= len(idx_to_remove)
 
         return pc, label
-
 
 def writePly(f_out:str, vertex: list):
     with open(f_out, 'w') as f:
@@ -151,12 +178,12 @@ if __name__ == "__main__":
     arg_parser.add_argument(
         'num_points',
         type=int,
-        help="number of points per"
+        help="number of points sample per object"
     )
     arg_parser.add_argument(
         'corruption_density',
         type=float,
-        help="(0.0,1.0) -- percent of data missing; Other -- no corruption, equal to 0.0"
+        help="(0.0,1.0) -- percent of data missing, generate pair ply files; Other: no corruption used"
     )
     arg_parser.add_argument(
         'out_dir',
@@ -191,7 +218,7 @@ if __name__ == "__main__":
     # setup output dir
     os.makedirs(args.out_dir, mode=0o777, exist_ok=True)
 
-    for i in range(args.num_scenes):
+    for i in tqdm(range(args.num_scenes)):
         pc_gd,_, pc_corrupted, _ = composer.get_next_scene()
         writePly(os.path.join(args.out_dir,'compose_scene_{}.ply'.format(i)),pc_gd)
         if pc_corrupted is not None:
