@@ -9,7 +9,7 @@ from scipy.spatial.transform import Rotation as scRot
 ITER_MAX = 1000
 
 class compose_scene_util:
-    def __init__(self, data_dir, split_dir, split_list, label_list, size_scene, num_objects, num_points, corruption01, use_normalize):
+    def __init__(self, data_dir, split_dir, split_list, label_list, size_scene, num_objects, num_points, corruption_density, use_normalize):
         split_json = [json.load(open(os.path.join(split_dir, split))) for split in split_list]
         self.label_list = label_list
         self.file_label_pairs = [ \
@@ -25,8 +25,8 @@ class compose_scene_util:
         self.num_objects = num_objects
         self.num_points = num_points
 
-        self.use_corruption = corruption01 < 1.0 and corruption01 > 0.0
-        self.corruption01 = corruption01
+        self.use_corruption = corruption_density < 1.0 and corruption_density > 0.0
+        self.corruption_density = corruption_density
 
         self.use_normalize = use_normalize
 
@@ -59,7 +59,6 @@ class compose_scene_util:
         ret_pc = np.empty((0,6))
         ret_label = np.empty((0,))
         rot_x90 = scRot.from_euler('x', 90, True)
-        normalize_offset = np.array([0.5,0.5,0.5])
         for center in centers:
             objply, label = random.choice(self.file_label_pairs)
             vertex = np.array(np.random.choice(PlyData.read(objply)['vertex'].data,self.num_points).tolist())[:,0:6]
@@ -69,12 +68,7 @@ class compose_scene_util:
             rot_vertex = rot_z * rot_x90
             # pos
             floor_offset = np.array([0,0,np.max(vertex[:,1])])
-            if self.use_normalize:  # non-optimal branch
-                # normalizing to 0-1 cube centered at 0.5,0.5
-                vertex[:,0:3] = np.apply_along_axis(rot_vertex.apply, 1, vertex[:,0:3]) + center + floor_offset
-                vertex[:,0:3] = vertex[:,0:3] / self.size_scene + normalize_offset  # inplace
-            else:
-                vertex[:,0:3] = np.apply_along_axis(rot_vertex.apply, 1, vertex[:,0:3]) + center + floor_offset
+            vertex[:,0:3] = np.apply_along_axis(rot_vertex.apply, 1, vertex[:,0:3]) + center + floor_offset
             # normal
             vertex[:,3:6] = np.apply_along_axis(rot_vertex.apply, 1, vertex[:,3:6])
             
@@ -83,13 +77,23 @@ class compose_scene_util:
             ret_label =  np.append(ret_label, label)
 
         if self.use_corruption :
-            pc_c, label_c = __corrupt_scene(ret_pc, ret_label, self.corruption01)
-            return ret_pc, ret_label, pc_c, label_c
+            pc_c, label_c = __corrupt_scene(ret_pc, ret_label, self.corruption_density, 0.3)
         else:
-            return ret_pc, ret_label, None, None
+            pc_c = label_c = None
 
-    def __corrupt_scene(pc, label, corruption01):
-        # remove all points that is close to random centers
+        if self.use_normalize:
+                normalize_offset = np.array([0.5,0.5,0.0])
+                ret_pc[:,0:3] = ret_pc[:,0:3] / self.size_scene + normalize_offset  # inplace
+
+        return ret_pc, ret_label, pc_c, label_c
+    def __corrupt_scene(pc, label, corruption_density, shape_size):
+        shape_size = 0.1
+        num_to
+
+        # pick random surface points
+        # center a shape on random distance along surface normal
+        # remove all points in current region
+        # continue until
 
         return pc, label
 
@@ -150,7 +154,7 @@ if __name__ == "__main__":
         help="number of points per"
     )
     arg_parser.add_argument(
-        'corruption01',
+        'corruption_density',
         type=float,
         help="(0.0,1.0) -- percent of data missing; Other -- no corruption, equal to 0.0"
     )
@@ -180,7 +184,7 @@ if __name__ == "__main__":
         size_scene = args.size_scene,
         num_objects = args.num_objects,
         num_points = args.num_points,
-        corruption01 = args.corruption01,
+        corruption_density = args.corruption_density,
         use_normalize = True
     )
 
