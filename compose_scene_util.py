@@ -8,6 +8,7 @@ from scipy.spatial.transform import Rotation as scRot
 try:
     from tqdm.auto import tqdm
 except ImportError:
+    print('tqdm not find')
     def tqdm(*args, **kwargs):
         if args:
             return args[0]
@@ -16,7 +17,7 @@ except ImportError:
 ITER_MAX = 1000
 
 class compose_scene_util:
-    def __init__(self, data_dir, split_dir, split_list, label_list, size_scene, num_objects, num_points, corruption_density, use_normalize):
+    def __init__(self, data_dir, split_dir, split_list, label_list, size_scene, num_objects, num_points, num_shape, size_shape , use_normalize):
         split_json = [json.load(open(os.path.join(split_dir, split))) for split in split_list]
         self.label_list = label_list
         self.file_label_pairs = [ \
@@ -32,8 +33,9 @@ class compose_scene_util:
         self.num_objects = num_objects
         self.num_points = num_points
 
-        self.use_corruption = corruption_density < 1.0 and corruption_density > 0.0
-        self.corruption_density = corruption_density
+        self.use_corruption = num_shape > 0
+        self.num_shape = num_shape
+        self.size_shape = size_shape
 
         self.use_normalize = use_normalize
 
@@ -83,7 +85,7 @@ class compose_scene_util:
             ret_label =  np.append(ret_label, label)
 
         if self.use_corruption :
-            pc_c, label_c = self.corrupt_scene(ret_pc, ret_label, self.corruption_density, 0.25)
+            pc_c, label_c = self.corrupt_scene(ret_pc, ret_label, self.num_shape, self.size_shape)
         else:
             pc_c = label_c = None
 
@@ -97,31 +99,32 @@ class compose_scene_util:
         return ret_pc, ret_label, pc_c, label_c
 
     @staticmethod
-    def corrupt_scene(pc, label, corruption_density, shape_size):
+    def corrupt_scene(pc, label, num_shape, size_shape):
         '''
         shape_size: radius of sphere
         '''
-        points_to_remove = pc.shape[0] * corruption_density
+        def std_sphere(pos):
+            return np.linalg.norm(pos, axis=0) < size_shape
+        def std_cube(pos):
+            return np.all(np.abs(pos) < size_shape)
 
-        while points_to_remove > 0:
+        for _ in range(num_shape):
             # pick random surface points
             surface_point = pc[random.randrange(pc.shape[0])]
             
             # center a shape on random distance along surface normal
-            shape_center = surface_point[0:3] + random.uniform(-shape_size * 0.9, shape_size * 0.9) * surface_point[3:6]
+            # shape_center = surface_point[0:3] + random.uniform(-shape_size * 0.9, shape_size * 0.9) * surface_point[3:6]
+            shape_center = surface_point[0:3]
 
             # remove all points in current shape
             idx_to_remove = []
-            for i in range(pc.shape[0]):
-                if np.linalg.norm(pc[i][0:3] - shape_center, axis=0) < shape_size:
+            for i,point in enumerate(pc):
+                if std_cube(point[0:3] - shape_center):
                     idx_to_remove.append(i)
 
-            idx_to_remove = np.array(idx_to_remove)
+            # idx_to_remove = np.array(idx_to_remove)
             pc = np.delete(pc, idx_to_remove, axis = 0)
             label = np.delete(label, idx_to_remove, axis = 0)
-
-            # continue until points meet density requirement
-            points_to_remove -= len(idx_to_remove)
 
         return pc, label
 
@@ -168,7 +171,7 @@ if __name__ == "__main__":
     arg_parser.add_argument(
         'size_scene',
         type=float,
-        help="size of generating plane (before normalizing, obj as unit size)"
+        help="size of generating plane (before normalizing, obj as unit length)"
     )
     arg_parser.add_argument(
         'num_objects',
@@ -181,10 +184,21 @@ if __name__ == "__main__":
         help="number of points sample per object"
     )
     arg_parser.add_argument(
-        'corruption_density',
-        type=float,
-        help="(0.0,1.0) -- percent of data missing, generate pair ply files; Other: no corruption used"
+        'num_shape',
+        type=int,
+        help="number of shapes to remove per scene"
     )
+    arg_parser.add_argument(
+        'size_shape',
+        type=float,
+        help="size of shape (obj as unit length)"
+    )
+
+    # arg_parser.add_argument(
+    #     'corruption_density',
+    #     type=float,
+    #     help="(0.0,1.0) -- percent of data missing, generate pair ply files; Other: no corruption used"
+    # )
     arg_parser.add_argument(
         'out_dir',
         help="dir for output ply files"
@@ -211,7 +225,8 @@ if __name__ == "__main__":
         size_scene = args.size_scene,
         num_objects = args.num_objects,
         num_points = args.num_points,
-        corruption_density = args.corruption_density,
+        num_shape = args.num_shape,
+        size_shape = args.size_shape,
         use_normalize = True
     )
 
