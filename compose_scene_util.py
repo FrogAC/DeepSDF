@@ -17,7 +17,7 @@ except ImportError:
 ITER_MAX = 1000
 
 class compose_scene_util:
-    def __init__(self, data_dir, split_dir, split_list, label_list, size_scene, num_objects, num_points, num_shape, size_shape , use_normalize):
+    def __init__(self, data_dir, split_dir, split_list, label_list, size_scene, num_objects, num_points, num_shape, size_corrupt , use_normalize):
         split_json = [json.load(open(os.path.join(split_dir, split))) for split in split_list]
         self.label_list = label_list
         self.file_label_pairs = [ \
@@ -35,7 +35,7 @@ class compose_scene_util:
 
         self.use_corruption = num_shape > 0
         self.num_shape = num_shape
-        self.size_shape = size_shape
+        self.size_corrupt = size_corrupt
 
         self.use_normalize = use_normalize
 
@@ -85,7 +85,7 @@ class compose_scene_util:
             ret_label =  np.append(ret_label, label)
 
         if self.use_corruption :
-            pc_c, label_c = self.corrupt_scene(ret_pc, ret_label, self.num_shape, self.size_shape)
+            pc_c, label_c = self.corrupt_scene(ret_pc, ret_label, self.num_shape, self.size_corrupt)
         else:
             pc_c = label_c = None
 
@@ -95,18 +95,17 @@ class compose_scene_util:
             if pc_c is not None:
                 pc_c[:,0:3] = pc_c[:,0:3] / self.size_scene + normalize_offset
 
-
         return ret_pc, ret_label, pc_c, label_c
 
     @staticmethod
-    def corrupt_scene(pc, label, num_shape, size_shape):
+    def corrupt_scene(pc, label, num_shape, size_corrupt):
         '''
         shape_size: radius of sphere
         '''
         def std_sphere(pos):
-            return np.linalg.norm(pos, axis=0) < size_shape
+            return np.linalg.norm(pos, axis=0) < size_corrupt
         def std_cube(pos):
-            return np.all(np.abs(pos) < size_shape)
+            return np.all(np.abs(pos) < size_corrupt)
 
         for _ in range(num_shape):
             # pick random surface points
@@ -169,29 +168,34 @@ if __name__ == "__main__":
         help="number of scenes to generate"
     )
     arg_parser.add_argument(
-        'size_scene',
-        type=float,
-        help="size of generating plane (before normalizing, obj as unit length)"
-    )
-    arg_parser.add_argument(
-        'num_objects',
-        type=int,
-        help="number of objects per scene"
-    )
-    arg_parser.add_argument(
         'num_points',
         type=int,
         help="number of points sample per object"
     )
+
     arg_parser.add_argument(
-        'num_shape',
-        type=int,
-        help="number of shapes to remove per scene"
+        '--size_scene',
+        type=float,
+        help="size of generating plane (before normalizing, obj as unit length)",
+        default=5.
     )
     arg_parser.add_argument(
-        'size_shape',
+        '--num_objects',
+        type=int,
+        help="number of objects per scene",
+        default=5
+    )
+    arg_parser.add_argument(
+        '--num_corrupt',
+        type=int,
+        help="number of shapes to remove per scene",
+        default=0
+    )
+    arg_parser.add_argument(
+        '--size_corrupt',
         type=float,
-        help="size of shape (obj as unit length)"
+        help="size of shape (obj as unit length)",
+        default=0.
     )
 
     # arg_parser.add_argument(
@@ -199,17 +203,32 @@ if __name__ == "__main__":
     #     type=float,
     #     help="(0.0,1.0) -- percent of data missing, generate pair ply files; Other: no corruption used"
     # )
+    
     arg_parser.add_argument(
         'out_dir',
         help="dir for output ply files"
     )
 
+    arg_parser.add_argument(
+        'data_dir',
+        help="root dir for input points",
+        default=''
+    )
+
+    arg_parser.add_argument(
+        '--save_ply',
+        help="save ply along with the npy file",
+        action='store_true'
+    )
+
+
     args = arg_parser.parse_args()
 
+    root_dir = args.data_dir
     # defauly composer
     composer = compose_scene_util(
-        data_dir = 'data/',
-        split_dir = 'examples/splits',
+        data_dir = os.path.join(root_dir, 'data/'),
+        split_dir = os.path.join(root_dir, 'examples/splits'),
         split_list = ['sv2_chairs_train.json',
                       #'sv2_lamps_train.json',
                       #'sv2_planes_train.json',
@@ -225,8 +244,8 @@ if __name__ == "__main__":
         size_scene = args.size_scene,
         num_objects = args.num_objects,
         num_points = args.num_points,
-        num_shape = args.num_shape,
-        size_shape = args.size_shape,
+        num_shape = args.num_corrupt,
+        size_corrupt = args.size_corrupt,
         use_normalize = True
     )
 
@@ -235,7 +254,9 @@ if __name__ == "__main__":
 
     for i in tqdm(range(args.num_scenes)):
         pc_gd,_, pc_corrupted, _ = composer.get_next_scene()
-        writePly(os.path.join(args.out_dir,'compose_scene_{}.ply'.format(i)),pc_gd)
-        if pc_corrupted is not None:
-            writePly(os.path.join(args.out_dir,'compose_scene_corrupted_{}.ply'.format(i)),pc_corrupted)
-        
+        np.save(os.path.join(args.out_dir,'compose_scene_{}.npy'.format(i)),pc_gd)
+        if args.save_ply:
+            writePly(os.path.join(args.out_dir,'compose_scene_{}.ply'.format(i)),pc_gd)
+            if pc_corrupted is not None:
+                writePly(os.path.join(args.out_dir,'compose_scene_corrupted_{}.ply'.format(i)),pc_corrupted)
+
