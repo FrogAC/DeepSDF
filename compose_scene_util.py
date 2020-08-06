@@ -75,11 +75,11 @@ class compose_scene_util:
             rot_z = scRot.from_euler('z', np.random.random() * 360, degrees = True)
             rot_vertex = rot_z * rot_x90
             # pos
-            floor_offset = np.array([0,0,np.max(vertex[:,1])])
-            vertex[:,0:3] = np.apply_along_axis(rot_vertex.apply, 1, vertex[:,0:3]) + center + floor_offset
+            vertex[:,0:3] = np.apply_along_axis(rot_vertex.apply, 1, vertex[:,0:3]) + center
+            vertex[:,2] -= np.min(vertex[:,2]) # force floor level 0
             # normal
             vertex[:,3:6] = np.apply_along_axis(rot_vertex.apply, 1, vertex[:,3:6])
-            
+
             label = np.full((vertex.shape[0],),label)
             ret_pc = np.append(ret_pc, vertex, axis = 0)
             ret_label =  np.append(ret_label, label)
@@ -94,6 +94,11 @@ class compose_scene_util:
             ret_pc[:,0:3] = ret_pc[:,0:3] / self.size_scene + normalize_offset
             if pc_c is not None:
                 pc_c[:,0:3] = pc_c[:,0:3] / self.size_scene + normalize_offset
+
+        # assure alignment
+        assert np.min(ret_pc[:,0]) >= 0.0
+        assert np.min(ret_pc[:,1]) >= 0.0
+        assert np.min(ret_pc[:,2]) >= 0.0
 
         return ret_pc, ret_label, pc_c, label_c
 
@@ -254,9 +259,9 @@ if __name__ == "__main__":
 
     for i in tqdm(range(args.num_scenes)):
         pc_gd,_, pc_corrupted, _ = composer.get_next_scene()
-        np.save(os.path.join(args.out_dir,'compose_scene_{}.npy'.format(i)),pc_gd)
+        np.save(os.path.join(args.out_dir,'compose_scene_{:05d}.npy'.format(i)),pc_gd)
         if args.save_ply:
-            writePly(os.path.join(args.out_dir,'compose_scene_{}.ply'.format(i)),pc_gd)
+            writePly(os.path.join(args.out_dir,'compose_scene_{:05d}.ply'.format(i)),pc_gd)
             if pc_corrupted is not None:
-                writePly(os.path.join(args.out_dir,'compose_scene_corrupted_{}.ply'.format(i)),pc_corrupted)
+                writePly(os.path.join(args.out_dir,'compose_scene_corrupted_{:05d}.ply'.format(i)),pc_corrupted)
 
